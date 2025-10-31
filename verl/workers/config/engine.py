@@ -18,7 +18,7 @@ from typing import Any, Optional
 
 from verl.base_config import BaseConfig
 
-__all__ = ["FSDPEngineConfig", "McoreEngineConfig"]
+__all__ = ["FSDPEngineConfig", "McoreEngineConfig", "VeomniEngineConfig"]
 
 
 @dataclass
