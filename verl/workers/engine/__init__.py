@@ -13,7 +13,7 @@
 # limitations under the License.
 from .base import BaseEngine, EngineRegistry
 from .fsdp import FSDPEngine, FSDPEngineWithLMHead
-from .veomni import VeomniEngine
+# from .veomni import VeomniEngine
 
 __all__ = ["BaseEngine", "EngineRegistry", "FSDPEngine", "FSDPEngineWithLMHead"]
 

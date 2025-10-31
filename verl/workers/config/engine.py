@@ -118,3 +118,43 @@ class FSDPEngineConfig(BaseConfig):
 
     def __post_init__(self):
         assert self.strategy in ["fsdp", "fsdp2"], f"strategy {self.strategy} not supported"
+
+
+@dataclass
+class VeomniEngineConfig(BaseConfig):
+    """Configuration for FSDP (Fully Sharded Data Parallel).
+
+    The inheritance from BaseConfig provides omegaconf.DictConfig-like interface for a dataclass config.
+
+    Args:
+        wrap_policy (Dict[str, Any]): Configuration for FSDP wrap policy.
+        param_offload (bool): Whether to offload parameters to CPU, default False
+        optimizer_offload (bool): Whether to offload optimizer states to CPU, default False
+        offload_policy (bool): Whether to offload policy model parameters, default False
+        reshard_after_forward (bool): Whether to reshard parameters after forward pass, default True
+        fsdp_size (int): FSDP group size. -1 means use all available GPUs.
+        forward_prefetch (bool): Whether to prefetch parameters for next forward pass, default False
+        model_dtype (str): Model data type used to initialize the transformers model. default "fp32"
+        use_orig_params (bool): Whether to use original parameters when initialize FSDP1, default False
+        mixed_precision (Optional[dict[str, Any]]): Mixed precision configuration for FSDP, default None
+    """
+
+    wrap_policy: dict[str, Any] = field(default_factory=dict)
+    param_offload: bool = False
+    optimizer_offload: bool = False
+    offload_policy: bool = False
+    reshard_after_forward: bool = True
+    fsdp_size: int = -1
+    forward_prefetch: bool = False
+    model_dtype: str = "fp32"
+    use_orig_params: bool = False
+    mixed_precision: Optional[dict[str, Any]] = None
+    ulysses_sequence_parallel_size: int = 1
+    entropy_from_logits_with_chunking: bool = False
+    use_torch_compile: bool = True
+    entropy_checkpointing: bool = False
+    forward_only: bool = False
+    strategy: str = "fsdp"
+
+    def __post_init__(self):
+        assert self.strategy in ["veomni"], f"strategy {self.strategy} not supported"
