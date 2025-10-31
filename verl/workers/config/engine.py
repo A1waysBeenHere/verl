@@ -154,7 +154,7 @@ class VeomniEngineConfig(BaseConfig):
     use_torch_compile: bool = True
     entropy_checkpointing: bool = False
     forward_only: bool = False
-    strategy: str = "fsdp"
+    strategy: str = "veomni"
 
     def __post_init__(self):
         assert self.strategy in ["veomni"], f"strategy {self.strategy} not supported"
