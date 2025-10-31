@@ -25,7 +25,7 @@ from veomni.optim import build_lr_scheduler, build_optimizer
 from veomni.checkpoint import build_checkpointer, ckpt_to_state_dict
 
 
-@EngineRegistry.register(model_type="language_model", backend=["fsdp", "fsdp2"], device=["cuda", "npu"])
+@EngineRegistry.register(model_type="omni_model", backend=["veomni"], device=["cuda", "npu"])
 class VeomniEngine(BaseEngine):
     def __init__(
         self,
