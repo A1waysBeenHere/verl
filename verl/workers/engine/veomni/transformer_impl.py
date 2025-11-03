@@ -497,9 +497,10 @@ class VeomniEngine(BaseEngine):
             )  # prevent model thinks we are generating
 
             print(f"====>raw_output: {raw_output}")
-            model_output = self.prepare_model_outputs(
-                output=raw_output, output_args=output_args, micro_batch=micro_batch
-            )
+            # model_output = self.prepare_model_outputs(
+            #     output=raw_output, output_args=output_args, micro_batch=micro_batch
+            # )
+            # print(f"====>model_output: {model_output}")
             loss = raw_output.loss.mean() / mbs_len
             metrics = {"loss": loss.detach().item()}
 
@@ -514,7 +515,7 @@ class VeomniEngine(BaseEngine):
             
 
             output = {
-                "model_output": model_output,
+                "model_output": raw_output,
                 "loss": loss,
                 "metrics": metrics,
             }
