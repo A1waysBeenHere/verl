@@ -62,8 +62,8 @@ class VeomniEngine(BaseEngine):
             pp_size=self.engine_config.pipeline_parallel_size,
             cp_size=self.engine_config.context_parallel_size,
             ulysses_size=self.engine_config.ulysses_parallel_size,
-            # dp_mode=self.engine_config.data_parallel_mode,
-            dp_mode=self.engine_config.strategy      
+            dp_mode=self.engine_config.data_parallel_mode,
+            # dp_mode=self.engine_config.strategy      
         )
 
         self.use_remove_padding = self.model_config.use_remove_padding
