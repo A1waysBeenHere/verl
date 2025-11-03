@@ -5,7 +5,7 @@ from typing import Any, Callable, Optional
 from tensordict import TensorDict
 
 import verl.utils.torch_functional as verl_F
-from verl.workers.config import FSDPEngineConfig, FSDPOptimizerConfig, HFModelConfig
+from verl.workers.config import VeomniEngineConfig, VeomniOptimizerConfig, HFModelConfig
 from verl.trainer.config import CheckpointConfig
 from verl.utils import tensordict_utils as tu
 from verl.utils.device import (
@@ -30,8 +30,8 @@ class VeomniEngine(BaseEngine):
     def __init__(
         self,
         model_config: HFModelConfig,
-        engine_config: FSDPEngineConfig,
-        optimizer_config: FSDPOptimizerConfig,
+        engine_config: VeomniEngineConfig,
+        optimizer_config: VeomniOptimizerConfig,
         checkpoint_config: CheckpointConfig,
     ):
         """
