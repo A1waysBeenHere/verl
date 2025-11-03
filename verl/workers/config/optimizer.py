@@ -66,6 +66,9 @@ class VeomniOptimizerConfig(OptimizerConfig):
         num_cycles (float): Number of cosine cycles in LR schedule.
     """
 
+    _mutable_fields = OptimizerConfig._mutable_fields.copy()
+    _mutable_fields.add("lr_warmup_steps_ratio")
+
     optimizer: str = "adamw"
     lr_min: float = 1e-7
     lr_decay_style: str = "constant"
