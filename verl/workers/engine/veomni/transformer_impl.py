@@ -328,6 +328,7 @@ class VeomniEngine(BaseEngine):
                 "input_ids": input_ids_rmpad,
                 "attention_mask": None,
                 "position_ids": position_ids_rmpad,
+                "labels": torch.tensor(input_ids_rmpad),
             }
 
         else:
