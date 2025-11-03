@@ -12,7 +12,7 @@ project_name=verl_sft_test
 RESUME_MODE=auto
 MODEL_ID=${MODEL_ID:-/data/m30061825/Qwen3-0.6B}
 
-SP_SIZE=${SP_SIZE:-8}
+SP_SIZE=${SP_SIZE:-1}
 FSDP_SIZE=${FSDP_SIZE:-1}
 FSDP_STRATEGY=${FSDP_STRATEGY:-"veomni"}
 
