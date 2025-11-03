@@ -2,7 +2,7 @@
 _target_: verl.workers.config.VeomniOptimizerConfig
 
 # Optimizer class name (e.g., "AdamW", "AdamW8bit", "_AdamW", "Adam")
-optimizer: AdamW
+optimizer: adamw
 
 # Module path to import optimizer
 # Examples: "torch.optim", "torchao.optim", "bitsandbytes.optim"

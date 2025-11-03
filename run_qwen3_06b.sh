@@ -37,7 +37,7 @@ FSDP_ENGINE_CONFIG="\
     optim.warmup_style=cosine \
     engine.ulysses_sequence_parallel_size=${SP_SIZE} \
     engine.strategy=${FSDP_STRATEGY} \
-    engine.data_parallel_size=${FSDP_SIZE}"
+    +engine.data_parallel_size=${FSDP_SIZE}"
 
 
 ENGINE_CONFIG="$FSDP_ENGINE_CONFIG"
