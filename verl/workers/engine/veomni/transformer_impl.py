@@ -232,7 +232,7 @@ class VeomniEngine(BaseEngine):
         """
         if hasattr(self.model, "clip_grad_norm_"):
             _gn = self.model.clip_grad_norm_(self.engine_config.max_grad_norm)
-            grad_norm = _gn.item() if hasattr(_gn, "item") else float(_gn)
+            grad_norm = _gn.item() if hasattr(_gn, "item") else torch.tensor(_gn)
         else:
             # logger.info_rank0(
             #     "Can NOT find regitsered clip_grad_norm_ method in the model, using PyTorch default implementation.."
@@ -243,7 +243,7 @@ class VeomniEngine(BaseEngine):
             grad_norm = grad_norm.full_tensor()
 
         # if grad_norm is not finite, skip the update
-        if not torch.isfinite(torch.tensor(grad_norm)):
+        if not torch.isfinite(grad_norm):
             print(f"WARN: grad_norm is not finite: {grad_norm}")
             self.optimizer.zero_grad()
         else:
