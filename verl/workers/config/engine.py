@@ -174,6 +174,7 @@ class VeomniEngineConfig(BaseConfig):
     ckpt_manager: Literal["dcp"] = "dcp"
     enable_activation_offload: bool = False
     activation_gpu_limit: float = 0.0
+    basic_modules: Optional[List[str]] = []
 
 
 
