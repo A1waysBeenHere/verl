@@ -177,7 +177,7 @@ class VeomniEngine(BaseEngine):
             self.engine_config.enable_activation_offload, self.engine_config.enable_gradient_checkpointing, self.engine_config.activation_gpu_limit
         )
 
-        self.model.train()
+        # self.model.train()
     
 
     def save_checkpoint(
@@ -208,7 +208,7 @@ class VeomniEngine(BaseEngine):
             with engine.train_mode():
                 # runs in training mode
         """
-        raise NotImplementedError
+        return EngineTrainModeCtx(self)
 
     def eval_mode(self):
         """
@@ -218,7 +218,7 @@ class VeomniEngine(BaseEngine):
             with engine.eval_mode():
                 # runs in evaluation mode
         """
-        raise NotImplementedError
+        return EngineEvalModeCtx(self)
 
     def optimizer_zero_grad(self):
         """
@@ -606,10 +606,13 @@ class EngineTrainModeCtx:
 
     def __enter__(self):
         assert isinstance(self.engine, VeomniEngine)
-        pass
+        self.engine.mode = "train"
+        self.engine.model.train()
 
     def __exit__(self, exc_type, exc_value, traceback):
-        pass
+        assert isinstance(self.engine, VeomniEngine)
+        self.engine.optimizer_zero_grad()
+        self.engine.mode = None
 
 
 # TODO: 
