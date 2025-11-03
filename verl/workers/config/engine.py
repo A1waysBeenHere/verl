@@ -163,7 +163,7 @@ class VeomniEngineConfig(BaseConfig):
     pipeline_parallel_size: int = 1
     context_parallel_size: int = 1
     ulysses_parallel_size: int = 1
-    data_parallel_mode: str = "veomni"
+    data_parallel_mode: str = "fsdp2"
     enable_mixed_precision: bool = True
     init_device: str = "cpu"
     enable_full_shard: bool = False
