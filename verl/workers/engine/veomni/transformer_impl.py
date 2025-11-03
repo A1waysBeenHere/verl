@@ -62,7 +62,8 @@ class VeomniEngine(BaseEngine):
             pp_size=self.engine_config.pipeline_parallel_size,
             cp_size=self.engine_config.context_parallel_size,
             ulysses_size=self.engine_config.ulysses_parallel_size,
-            dp_mode=self.engine_config.data_parallel_mode,            
+            # dp_mode=self.engine_config.data_parallel_mode,
+            dp_mode=self.engine_config.strategy      
         )
 
         self.use_remove_padding = self.model_config.use_remove_padding
@@ -95,13 +96,16 @@ class VeomniEngine(BaseEngine):
         self.checkpoint_manager = build_checkpointer(dist_backend=self.engine_config.data_parallel_mode, ckpt_manager=self.engine_config.ckpt_manager)
         # This is used to import external_lib into the huggingface systems
         self.model = build_foundation_model(
-            config_path=self.model_config.config_path,
-            weights_path=self.model_config.model_path,
+            config_path=self.model_config.hf_config_path,
+            weights_path=self.model_config.path,
             torch_dtype="float32" if self.engine_config.enable_mixed_precision else "bfloat16",
-            attn_implementation=self.model_config.attn_implementation,
-            moe_implementation=self.model_config.moe_implementation,
+            # attn_implementation=self.model_config.attn_implementation,
+            attn_implementation="flash_attention_2",
+            # moe_implementation=self.model_config.moe_implementation,
+            moe_implementation="eager",
             init_device=self.engine_config.init_device,
-            force_use_huggingface=self.model_config.force_use_huggingface,
+            # force_use_huggingface=self.model_config.force_use_huggingface,
+            force_use_huggingface=False
         )
 
         model_config = self.model.config
@@ -110,7 +114,7 @@ class VeomniEngine(BaseEngine):
         self.model = build_parallelize_model(
             self.model,
             init_device=self.engine_config.init_device,
-            weights_path=self.model_config.model_path,
+            weights_path=self.model_config.path,
             enable_full_shard=self.engine_config.enable_full_shard,
             enable_mixed_precision=self.engine_config.enable_mixed_precision,
             enable_gradient_checkpointing=self.engine_config.enable_gradient_checkpointing,
@@ -122,32 +126,43 @@ class VeomniEngine(BaseEngine):
 
         self.optimizer = build_optimizer(
             self.model,
-            lr=self.engine_config.lr,
-            weight_decay=self.engine_config.weight_decay,
+            lr=self.optimizer_config.lr,
+            weight_decay=self.optimizer_config.weight_decay,
             fused=True,
-            optimizer_type=self.engine_config.optimizer,
+            optimizer_type=self.optimizer_config.optimizer,
         )
         if get_optimizer_pre_hook is not None:
             optimizer_pre_hook = get_optimizer_pre_hook(self.model, model_config, self.engine_config.data_parallel_mode)
             self.optimizer.register_step_pre_hook(optimizer_pre_hook)
 
+        # self.lr_scheduler = build_lr_scheduler(
+        #     self.optimizer,
+        #     train_steps=self.optimizer_config.total_training_steps,
+        #     lr=self.optimizer_config.lr,
+        #     lr_min=self.optimizer_config.lr_min,
+        #     lr_decay_style=self.optimizer_config.lr_decay_style,
+        #     lr_decay_ratio=self.optimizer_config.lr_decay_ratio,
+        #     lr_warmup_ratio=self.optimizer_config.lr_warmup_ratio,
+        #     lr_start=self.optimizer_config.lr_start,
+        # )
         self.lr_scheduler = build_lr_scheduler(
             self.optimizer,
-            train_steps=self.engine_config.train_steps * self.engine_config.num_train_epochs,
-            lr=self.engine_config.lr,
-            lr_min=self.engine_config.lr_min,
-            lr_decay_style=self.engine_config.lr_decay_style,
-            lr_decay_ratio=self.engine_config.lr_decay_ratio,
-            lr_warmup_ratio=self.engine_config.lr_warmup_ratio,
-            lr_start=self.engine_config.lr_start,
+            train_steps=self.optimizer_config.total_training_steps,
+            lr=self.optimizer_config.lr,
+            lr_min=1e-7,
+            lr_decay_style="constant",
+            lr_decay_ratio=1.0,
+            lr_warmup_ratio=0.0,
+            lr_start=0.0,
         )
 
-        if self.engine.load_checkpoint_path:
+        # if self.engine_config.load_checkpoint_path:
+        if False:
             state = {"model": self.model, "optimizer": self.optimizer, "extra_state": {}}  # cannot be None
-            self.checkpoint_manager.load(self.engine.load_checkpoint_path, state)
+            self.checkpoint_manager.load(self.engine_config.load_checkpoint_path, state)
             global_step = state["extra_state"]["global_step"]
-            start_epoch = global_step // self.engine.train_steps
-            start_step = global_step % self.engine.train_steps
+            start_epoch = global_step // self.engine_config.train_steps
+            start_step = global_step % self.engine_config.train_steps
             self.lr_scheduler.load_state_dict(state["extra_state"]["lr_scheduler"])
             # train_dataloader.load_state_dict(state["extra_state"]["train_dataloader"])
             # environ_meter.load_state_dict(state["extra_state"]["environ_meter"])
@@ -158,7 +173,7 @@ class VeomniEngine(BaseEngine):
             dist.barrier()
         
         self.model_fwd_context, self.model_bwd_context = build_activation_offloading_context(
-            self.engine.enable_activation_offload, self.engine.enable_gradient_checkpointing, self.engine.activation_gpu_limit
+            self.engine_config.enable_activation_offload, self.engine_config.enable_gradient_checkpointing, self.engine_config.activation_gpu_limit
         )
 
         self.model.train()

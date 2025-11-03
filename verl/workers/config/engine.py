@@ -14,7 +14,7 @@
 
 import warnings
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Callable, Dict, List, Literal, Optional, TypeVar, Union, get_type_hints
 
 from verl.base_config import BaseConfig
 
@@ -154,7 +154,28 @@ class VeomniEngineConfig(BaseConfig):
     use_torch_compile: bool = True
     entropy_checkpointing: bool = False
     forward_only: bool = False
-    strategy: str = "veomni"
+    strategy: str = "fsdp2"
+    data_parallel_size: int = 1
+    data_parallel_replicate_size: int = 1
+    data_parallel_shard_size: int = 1
+    tensor_parallel_size: int = 1
+    expert_parallel_size: int = 1
+    pipeline_parallel_size: int = 1
+    context_parallel_size: int = 1
+    ulysses_parallel_size: int = 1
+    data_parallel_mode: str = "fsdp2"
+    enable_mixed_precision: bool = True
+    init_device: str = "cpu"
+    enable_full_shard: bool = False
+    enable_gradient_checkpointing: bool = False
+    enable_fsdp_offload: bool = False
+    enable_reentrant: bool = False
+    enable_forward_prefetch: bool = False
+    ckpt_manager: Literal["dcp"] = "dcp"
+    enable_activation_offload: bool = False
+    activation_gpu_limit: float = 0.0
+
+
 
     def __post_init__(self):
-        assert self.strategy in ["veomni"], f"strategy {self.strategy} not supported"
+        assert self.strategy in ["fsdp2"], f"strategy {self.strategy} not supported"
