@@ -7,7 +7,7 @@ optimizer: adamw
 lr: 1e-3
 
 # LR warmup steps ratio
-lr_warmup_steps_ratio: 0.0
+lr_warmup_ratio: 0.0
 
 # Total training steps
 total_training_steps: -1
