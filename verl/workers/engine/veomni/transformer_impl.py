@@ -119,7 +119,8 @@ class VeomniEngine(BaseEngine):
             enable_mixed_precision=self.engine_config.enable_mixed_precision,
             enable_gradient_checkpointing=self.engine_config.enable_gradient_checkpointing,
             enable_fsdp_offload=self.engine_config.enable_fsdp_offload,
-            basic_modules=self.model._no_split_modules + self.engine_config.basic_modules,
+            # basic_modules=self.model._no_split_modules + self.engine_config.basic_modules,
+            basic_modules=self.model._no_split_modules,
             enable_reentrant=self.engine_config.enable_reentrant,
             enable_forward_prefetch=self.engine_config.enable_forward_prefetch,
         )
