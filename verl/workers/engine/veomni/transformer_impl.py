@@ -136,26 +136,27 @@ class VeomniEngine(BaseEngine):
             optimizer_pre_hook = get_optimizer_pre_hook(self.model, model_config, self.engine_config.data_parallel_mode)
             self.optimizer.register_step_pre_hook(optimizer_pre_hook)
 
-        # self.lr_scheduler = build_lr_scheduler(
-        #     self.optimizer,
-        #     train_steps=self.optimizer_config.total_training_steps,
-        #     lr=self.optimizer_config.lr,
-        #     lr_min=self.optimizer_config.lr_min,
-        #     lr_decay_style=self.optimizer_config.lr_decay_style,
-        #     lr_decay_ratio=self.optimizer_config.lr_decay_ratio,
-        #     lr_warmup_ratio=self.optimizer_config.lr_warmup_ratio,
-        #     lr_start=self.optimizer_config.lr_start,
-        # )
         self.lr_scheduler = build_lr_scheduler(
             self.optimizer,
             train_steps=self.optimizer_config.total_training_steps,
             lr=self.optimizer_config.lr,
-            lr_min=1e-7,
-            lr_decay_style="constant",
-            lr_decay_ratio=1.0,
-            lr_warmup_ratio=0.0,
-            lr_start=0.0,
+            lr_min=self.optimizer_config.lr_min,
+            lr_decay_style=self.optimizer_config.lr_decay_style,
+            lr_decay_ratio=self.optimizer_config.lr_decay_ratio,
+            lr_warmup_ratio=self.optimizer_config.lr_warmup_steps_ratio,
+            lr_start=self.optimizer_config.lr_start,
         )
+
+        # self.lr_scheduler = build_lr_scheduler(
+        #     self.optimizer,
+        #     train_steps=self.optimizer_config.total_training_steps,
+        #     lr=self.optimizer_config.lr,
+        #     lr_min=1e-7,
+        #     lr_decay_style="constant",
+        #     lr_decay_ratio=1.0,
+        #     lr_warmup_ratio=0.0,
+        #     lr_start=0.0,
+        # )
 
         # if self.engine_config.load_checkpoint_path:
         if False:
@@ -231,13 +232,13 @@ class VeomniEngine(BaseEngine):
         Perform an optimization step using the optimizer.
         """
         if hasattr(self.model, "clip_grad_norm_"):
-            _gn = self.model.clip_grad_norm_(self.engine_config.max_grad_norm)
+            _gn = self.model.clip_grad_norm_(self.optimizer_config.grad_clip)
             grad_norm = _gn.item() if hasattr(_gn, "item") else float(_gn)
         else:
             # logger.info_rank0(
             #     "Can NOT find regitsered clip_grad_norm_ method in the model, using PyTorch default implementation.."
             # )
-            grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.engine_config.max_grad_norm)
+            grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.optimizer_config.grad_clip)
 
         if isinstance(grad_norm, DTensor):
             grad_norm = grad_norm.full_tensor()

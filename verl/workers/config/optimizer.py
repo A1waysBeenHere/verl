@@ -69,23 +69,21 @@ class VeomniOptimizerConfig(OptimizerConfig):
     _mutable_fields = OptimizerConfig._mutable_fields.copy()
     _mutable_fields.add("lr_scheduler_type")
 
-    optimizer: str = "AdamW"
-    optimizer_impl: str = "torch.optim"
-    min_lr_ratio: Optional[float] = None
-    # deprecate warmup_style
-    warmup_style: Optional[str] = None
-    lr_scheduler_type: str = "constant"
-    num_cycles: float = 0.5
-    override_optimizer_config: Optional[dict] = None
+    optimizer: str = "adamw"
+    lr_min: float = 1e-7
+    lr_decay_style: str = "constant"
+    lr_decay_ratio: float = 1.0
+    lr_warmup_ratio: Optional[float] = None
+    lr_start: float = 0.0
+    max_grad_norm: Optional[float] = None
 
     def __post_init__(self):
-        if self.warmup_style is not None:
-            assert self.warmup_style in ["constant", "cosine"]
-            warnings.warn(
-                "`warmup_style` is deprecated, use `lr_scheduler_type` instead.", DeprecationWarning, stacklevel=2
-            )
-            self.lr_scheduler_type = self.warmup_style
-        assert self.lr_scheduler_type in ["constant", "cosine"]
+        if self.max_grad_norm is not None:
+            warnings.warn("`max_grad_norm` is for Veomni, be replaced with `clip_grad` instead.", UserWarning, stacklevel=2)
+            self.clip_grad = self.max_grad_norm
+        if self.lr_warmup_ratio is not None:
+            warnings.warn("`lr_warmup_ratio` is for Veomni, be replaced with `lr_warmup_steps_ratio` instead.", UserWarning, stacklevel=2)
+            self.lr_warmup_steps_ratio = self.lr_warmup_ratio
         return super().__post_init__()
 
 
