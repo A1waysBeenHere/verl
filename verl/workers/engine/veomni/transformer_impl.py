@@ -496,6 +496,7 @@ class VeomniEngine(BaseEngine):
                 use_cache=False,
             )  # prevent model thinks we are generating
 
+            print(f"====>raw_output: {raw_output}")
             model_output = self.prepare_model_outputs(
                 output=raw_output, output_args=output_args, micro_batch=micro_batch
             )
