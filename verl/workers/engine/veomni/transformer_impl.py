@@ -243,7 +243,7 @@ class VeomniEngine(BaseEngine):
             grad_norm = grad_norm.full_tensor()
 
         # if grad_norm is not finite, skip the update
-        if not torch.isfinite(grad_norm):
+        if not torch.isfinite(torch.tensor(grad_norm)):
             print(f"WARN: grad_norm is not finite: {grad_norm}")
             self.optimizer.zero_grad()
         else:
