@@ -175,6 +175,7 @@ class VeomniEngineConfig(BaseConfig):
     enable_activation_offload: bool = False
     activation_gpu_limit: float = 0.0
     # basic_modules: Optional[List[str]] = None
+    max_grad_norm: float = 1.0
 
 
 

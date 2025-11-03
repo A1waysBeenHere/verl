@@ -231,13 +231,13 @@ class VeomniEngine(BaseEngine):
         Perform an optimization step using the optimizer.
         """
         if hasattr(self.model, "clip_grad_norm_"):
-            _gn = self.model.clip_grad_norm_(self.engine.max_grad_norm)
+            _gn = self.model.clip_grad_norm_(self.engine_config.max_grad_norm)
             grad_norm = _gn.item() if hasattr(_gn, "item") else float(_gn)
         else:
             # logger.info_rank0(
             #     "Can NOT find regitsered clip_grad_norm_ method in the model, using PyTorch default implementation.."
             # )
-            grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.engine.max_grad_norm)
+            grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.engine_config.max_grad_norm)
 
         if isinstance(grad_norm, DTensor):
             grad_norm = grad_norm.full_tensor()
