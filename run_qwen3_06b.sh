@@ -48,7 +48,7 @@ exp_name=nvidia-openmathreasoning-qwen3-8b-${backend}-${FSDP_STRATEGY}-sp${SP_SI
 CKPT_HOME=${CKPT_HOME:-$HOME/open_verl/sft/${project_name}/${exp_name}}
 mkdir -p "${CKPT_HOME}"
 
-torchrun --standalone --nnodes=1 --nproc-per-node=2 \
+torchrun --standalone --nnodes=1 --nproc-per-node=1 \
     ${ENTRYPOINT} \
     data.train_files="${TRAIN_FILES}" \
     data.train_batch_size=96 \
