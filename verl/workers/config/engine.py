@@ -165,7 +165,7 @@ class VeomniEngineConfig(BaseConfig):
     ulysses_parallel_size: int = 1
     data_parallel_mode: str = "fsdp2"
     enable_mixed_precision: bool = True
-    init_device: str = "cpu"
+    init_device: str = "meta"
     enable_full_shard: bool = False
     enable_gradient_checkpointing: bool = False
     enable_fsdp_offload: bool = False
