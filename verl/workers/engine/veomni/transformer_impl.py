@@ -515,7 +515,7 @@ class VeomniEngine(BaseEngine):
             
 
             output = {
-                "model_output": raw_output,
+                "model_output": {},
                 "loss": loss,
                 "metrics": metrics,
             }
