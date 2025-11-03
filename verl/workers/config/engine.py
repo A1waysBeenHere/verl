@@ -154,7 +154,7 @@ class VeomniEngineConfig(BaseConfig):
     use_torch_compile: bool = True
     entropy_checkpointing: bool = False
     forward_only: bool = False
-    strategy: str = "fsdp2"
+    strategy: str = "veomni"
     data_parallel_size: int = 1
     data_parallel_replicate_size: int = 1
     data_parallel_shard_size: int = 1
@@ -163,7 +163,7 @@ class VeomniEngineConfig(BaseConfig):
     pipeline_parallel_size: int = 1
     context_parallel_size: int = 1
     ulysses_parallel_size: int = 1
-    data_parallel_mode: str = "fsdp2"
+    data_parallel_mode: str = "veomni"
     enable_mixed_precision: bool = True
     init_device: str = "cpu"
     enable_full_shard: bool = False
@@ -178,4 +178,4 @@ class VeomniEngineConfig(BaseConfig):
 
 
     def __post_init__(self):
-        assert self.strategy in ["fsdp2"], f"strategy {self.strategy} not supported"
+        assert self.strategy in ["veomni"], f"strategy {self.strategy} not supported"
