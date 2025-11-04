@@ -5,7 +5,7 @@ ENTRYPOINT=${ENTRYPOINT:-"-m verl.trainer.sft_trainer"}
 
 TRAIN_FILES=${TRAIN_FILES:-/data/m30061825/train_multi.parquet}
 
-backend=${BACKEND:-veomni}
+backend=${BACKEND:-"veomni"}
 
 project_name=verl_sft_test
 
@@ -14,6 +14,7 @@ MODEL_ID=${MODEL_ID:-/data/m30061825/Qwen3-0.6B}
 
 SP_SIZE=${SP_SIZE:-1}
 FSDP_SIZE=${FSDP_SIZE:-2}
+STRATEGY=${STRATEGY:-"veomni"}
 DATA_PARALLEL_MODE=${DATA_PARALLEL_MODE:-"fsdp2"}
 
 TP_SIZE=${TP_SIZE:-8}
@@ -33,6 +34,7 @@ FSDP_ENGINE_CONFIG="\
     optim.max_grad_norm=1.0 \
     engine.ulysses_parallel_size=${SP_SIZE} \
     engine.data_parallel_mode=${DATA_PARALLEL_MODE} \
+    engine.strategy=${STRATEGY} \
     engine.data_parallel_size=${FSDP_SIZE}"
 
 

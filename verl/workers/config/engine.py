@@ -153,7 +153,7 @@ class VeomniEngineConfig(BaseConfig):
     use_torch_compile: bool = True
     entropy_checkpointing: bool = False
     forward_only: bool = False
-    strategy: str = "fsdp"
+    strategy: str = "veomni"
     data_parallel_size: int = 1
     data_parallel_replicate_size: int = 1
     data_parallel_shard_size: int = 1
@@ -177,16 +177,13 @@ class VeomniEngineConfig(BaseConfig):
 
 
     _mutable_fields = BaseConfig._mutable_fields.copy()
-    _mutable_fields.update(["strategy", "forward_prefetch"])
+    _mutable_fields.add("forward_prefetch")
 
     def __post_init__(self):
         
-        if self.data_parallel_mode is not None:
-            warnings.warn("`data_parallel_mode` is for Veomni, be replaced with `strategy` instead.", UserWarning, stacklevel=2)
-            self.strategy = self.data_parallel_mode
         if self.enable_forward_prefetch is not None:
             warnings.warn("`enable_forward_prefetch` is for Veomni, be replaced with `forward_prefetch` instead.", UserWarning, stacklevel=2)
             self.forward_prefetch = self.enable_forward_prefetch
 
 
-        assert self.strategy in ["fsdp", "fsdp2"], f"strategy {self.strategy} not supported"
+        assert self.strategy in ["veomni"], f"strategy {self.strategy} not supported"
