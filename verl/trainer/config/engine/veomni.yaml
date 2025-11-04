@@ -45,6 +45,7 @@ activation_gpu_limit: 0.0
 forward_prefetch: False
 
 
+strategy: veomni
 
 # Whether to use entropy_from_logits_with_chunking in fsdp.
 entropy_from_logits_with_chunking: false
