@@ -20,29 +20,29 @@ context_parallel_size: 1
 
 ulysses_parallel_size: 1
 
-enable_mixed_precision: True
+enable_mixed_precision: false
 
 init_device: meta
 
-enable_full_shard: True
+enable_full_shard: false
 
-enable_gradient_checkpointing: True
+enable_gradient_checkpointing: false
 
 enable_fsdp_offload: false
 
-enable_reentrant: True
+enable_reentrant: false
 
-enable_forward_prefetch: True
+enable_forward_prefetch: false
 
 ckpt_manager: dcp
 
-enable_activation_offload: True
+enable_activation_offload: false
 
 activation_gpu_limit: 0.0
 
 # Only for FSDP1: FSDP1 configuration, prefetch the next forward-pass all-gather
 # before the current forward computation.
-forward_prefetch: False
+forward_prefetch: false
 
 
 strategy: veomni
@@ -51,7 +51,7 @@ strategy: veomni
 entropy_from_logits_with_chunking: false
 
 # Whether to use torch compile in fsdp.
-use_torch_compile: true
+use_torch_compile: false
 
 # Whether to use entropy checkpointing in fsdp.
 entropy_checkpointing: false
