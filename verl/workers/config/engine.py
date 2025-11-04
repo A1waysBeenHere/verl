@@ -144,17 +144,17 @@ class VeomniEngineConfig(BaseConfig):
     optimizer_offload: bool = False
     offload_policy: bool = False
     reshard_after_forward: bool = True
-    fsdp_size: int = -1
+    # fsdp_size: int = -1
     forward_prefetch: bool = False
-    model_dtype: str = "fp32"
+    # model_dtype: str = "fp32"
     use_orig_params: bool = False
-    mixed_precision: Optional[dict[str, Any]] = None
+    # mixed_precision: Optional[dict[str, Any]] = None
     ulysses_sequence_parallel_size: int = 1
     entropy_from_logits_with_chunking: bool = False
     use_torch_compile: bool = True
     entropy_checkpointing: bool = False
     forward_only: bool = False
-    strategy: str = "veomni"
+    strategy: str = "fsdp"
     data_parallel_size: int = 1
     data_parallel_replicate_size: int = 1
     data_parallel_shard_size: int = 1
@@ -163,21 +163,28 @@ class VeomniEngineConfig(BaseConfig):
     pipeline_parallel_size: int = 1
     context_parallel_size: int = 1
     ulysses_parallel_size: int = 1
-    data_parallel_mode: str = "fsdp2"
-    enable_mixed_precision: bool = True
+    data_parallel_mode: Optional[str] = None
+    enable_mixed_precision: bool = False
     init_device: str = "meta"
     enable_full_shard: bool = False
     enable_gradient_checkpointing: bool = False
     enable_fsdp_offload: bool = False
     enable_reentrant: bool = False
-    enable_forward_prefetch: bool = False
+    enable_forward_prefetch: Optional[bool] = None
     ckpt_manager: Literal["dcp"] = "dcp"
     enable_activation_offload: bool = False
     activation_gpu_limit: float = 0.0
     # basic_modules: Optional[List[str]] = None
-    max_grad_norm: float = 1.0
-
 
 
     def __post_init__(self):
-        assert self.strategy in ["veomni"], f"strategy {self.strategy} not supported"
+        
+        if self.data_parallel_mode is not None:
+            warnings.warn("`data_parallel_mode` is for Veomni, be replaced with `strategy` instead.", UserWarning, stacklevel=2)
+            self.strategy = self.data_parallel_mode
+        if self.enable_forward_prefetch is not None:
+            warnings.warn("`enable_forward_prefetch` is for Veomni, be replaced with `forward_prefetch` instead.", UserWarning, stacklevel=2)
+            self.forward_prefetch = self.enable_forward_prefetch
+
+
+        assert self.strategy in ["fsdp", "fsdp2"], f"strategy {self.strategy} not supported"
