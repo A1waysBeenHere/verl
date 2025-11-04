@@ -14,7 +14,7 @@ MODEL_ID=${MODEL_ID:-/data/m30061825/Qwen3-0.6B}
 
 SP_SIZE=${SP_SIZE:-1}
 FSDP_SIZE=${FSDP_SIZE:-2}
-FSDP_STRATEGY=${FSDP_STRATEGY:-"veomni"}
+FSDP_STRATEGY=${FSDP_STRATEGY:-"fsdp2"}
 
 TP_SIZE=${TP_SIZE:-8}
 PP_SIZE=${PP_SIZE:-1}
@@ -31,9 +31,9 @@ FSDP_ENGINE_CONFIG="\
     optim.lr=2e-5 \
     optim.lr_warmup_ratio=0.01 \
     optim.max_grad_norm=1.0 \
-    engine.ulysses_sequence_parallel_size=${SP_SIZE} \
+    engine.ulysses_parallel_size=${SP_SIZE} \
     engine.strategy=${FSDP_STRATEGY} \
-    +engine.data_parallel_size=${FSDP_SIZE}"
+    engine.data_parallel_size=${FSDP_SIZE}"
 
 
 ENGINE_CONFIG="$FSDP_ENGINE_CONFIG"
