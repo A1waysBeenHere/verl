@@ -32,8 +32,6 @@ enable_fsdp_offload: false
 
 enable_reentrant: false
 
-enable_forward_prefetch: true
-
 ckpt_manager: dcp
 
 enable_activation_offload: true
