@@ -176,6 +176,9 @@ class VeomniEngineConfig(BaseConfig):
     # basic_modules: Optional[List[str]] = None
 
 
+    _mutable_fields = BaseConfig._mutable_fields.copy()
+    _mutable_fields.update(["strategy", "forward_prefetch"])
+
     def __post_init__(self):
         
         if self.data_parallel_mode is not None:
