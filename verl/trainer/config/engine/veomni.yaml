@@ -26,17 +26,7 @@ init_device: meta
 
 enable_full_shard: true
 
-enable_gradient_checkpointing: true
-
-enable_fsdp_offload: false
-
-enable_reentrant: false
-
 ckpt_manager: dcp
-
-enable_activation_offload: true
-
-activation_gpu_limit: 0.0
 
 # Only for FSDP1: FSDP1 configuration, prefetch the next forward-pass all-gather
 # before the current forward computation.

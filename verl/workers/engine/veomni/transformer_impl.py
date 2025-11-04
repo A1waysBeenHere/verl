@@ -175,7 +175,7 @@ class VeomniEngine(BaseEngine):
             dist.barrier()
         
         self.model_fwd_context, self.model_bwd_context = build_activation_offloading_context(
-            self.model_config.enable_activation_offload, self.model_config.enable_gradient_checkpointing, self.engine_config.activation_gpu_limit
+            self.model_config.enable_activation_offload, self.model_config.enable_gradient_checkpointing, self.model_config.activation_gpu_limit
         )
 
         # self.model.train()

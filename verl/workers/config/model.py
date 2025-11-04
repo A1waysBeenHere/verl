@@ -95,6 +95,7 @@ class HFModelConfig(BaseConfig):
     attn_implementation: str = "flash_attention_2"
     moe_implementation: str = "eager"
     force_use_huggingface: bool = False
+    activation_gpu_limit: float = 0.0
 
 
 
