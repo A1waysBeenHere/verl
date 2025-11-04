@@ -32,13 +32,13 @@ FSDP_ENGINE_CONFIG="\
     optim.lr_warmup_ratio=0.01 \
     optim.max_grad_norm=1.0 \
     engine.ulysses_parallel_size=${SP_SIZE} \
-    engine.data_parallel_mode=${FSDP_STRATEGY} \
+    engine.data_parallel_mode=${DATA_PARALLEL_MODE} \
     engine.data_parallel_size=${FSDP_SIZE}"
 
 
 ENGINE_CONFIG="$FSDP_ENGINE_CONFIG"
 echo "Using fsdp engine"
-exp_name=nvidia-openmathreasoning-qwen3-8b-${backend}-${FSDP_STRATEGY}-sp${SP_SIZE}-fsdp-1008a1
+exp_name=nvidia-openmathreasoning-qwen3-8b-${backend}-${DATA_PARALLEL_MODE}-sp${SP_SIZE}-fsdp-1008a1
 
 
 CKPT_HOME=${CKPT_HOME:-$HOME/open_verl/sft/${project_name}/${exp_name}}
