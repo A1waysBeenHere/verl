@@ -166,12 +166,12 @@ class VeomniEngineConfig(BaseConfig):
     enable_mixed_precision: bool = False
     init_device: str = "meta"
     enable_full_shard: bool = False
-    enable_gradient_checkpointing: bool = False
-    enable_fsdp_offload: bool = False
-    enable_reentrant: bool = False
+    # enable_gradient_checkpointing: bool = False
+    # enable_fsdp_offload: bool = False
+    # enable_reentrant: bool = False
     enable_forward_prefetch: Optional[bool] = None
     ckpt_manager: Literal["dcp"] = "dcp"
-    enable_activation_offload: bool = False
+    # enable_activation_offload: bool = False
     activation_gpu_limit: float = 0.0
     # basic_modules: Optional[List[str]] = None
 

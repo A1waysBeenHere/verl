@@ -99,13 +99,13 @@ class VeomniEngine(BaseEngine):
             config_path=self.model_config.hf_config_path,
             weights_path=self.model_config.path,
             torch_dtype="float32" if self.engine_config.enable_mixed_precision else "bfloat16",
-            # attn_implementation=self.model_config.attn_implementation,
-            attn_implementation="flash_attention_2",
-            # moe_implementation=self.model_config.moe_implementation,
-            moe_implementation="eager",
+            attn_implementation=self.model_config.attn_implementation,
+            # attn_implementation="flash_attention_2",
+            moe_implementation=self.model_config.moe_implementation,
+            # moe_implementation="eager",
             init_device=self.engine_config.init_device,
-            # force_use_huggingface=self.model_config.force_use_huggingface,
-            force_use_huggingface=False
+            force_use_huggingface=self.model_config.force_use_huggingface,
+            # force_use_huggingface=False
         )
 
         model_config = self.model.config
@@ -117,11 +117,11 @@ class VeomniEngine(BaseEngine):
             weights_path=self.model_config.path,
             enable_full_shard=self.engine_config.enable_full_shard,
             enable_mixed_precision=self.engine_config.enable_mixed_precision,
-            enable_gradient_checkpointing=self.engine_config.enable_gradient_checkpointing,
-            enable_fsdp_offload=self.engine_config.enable_fsdp_offload,
+            enable_gradient_checkpointing=self.model_config.enable_gradient_checkpointing,
+            enable_fsdp_offload=self.model_config.enable_fsdp_offload,
             # basic_modules=self.model._no_split_modules + self.engine_config.basic_modules,
             basic_modules=self.model._no_split_modules,
-            enable_reentrant=self.engine_config.enable_reentrant,
+            enable_reentrant=self.model_config.enable_reentrant,
             enable_forward_prefetch=self.engine_config.enable_forward_prefetch,
         )
 
@@ -175,7 +175,7 @@ class VeomniEngine(BaseEngine):
             dist.barrier()
         
         self.model_fwd_context, self.model_bwd_context = build_activation_offloading_context(
-            self.engine_config.enable_activation_offload, self.engine_config.enable_gradient_checkpointing, self.engine_config.activation_gpu_limit
+            self.model_config.enable_activation_offload, self.model_config.enable_gradient_checkpointing, self.engine_config.activation_gpu_limit
         )
 
         # self.model.train()
