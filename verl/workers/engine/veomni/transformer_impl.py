@@ -232,8 +232,8 @@ class VeomniEngine(BaseEngine):
         Perform an optimization step using the optimizer.
         """
         if hasattr(self.model, "clip_grad_norm_"):
-            _gn = self.model.clip_grad_norm_(self.optimizer_config.clip_grad)
-            grad_norm = _gn.item() if hasattr(_gn, "item") else float(_gn)
+            grad_norm = self.model.clip_grad_norm_(self.optimizer_config.clip_grad)
+            # grad_norm = _gn.item() if hasattr(_gn, "item") else float(_gn)
         else:
             # logger.info_rank0(
             #     "Can NOT find regitsered clip_grad_norm_ method in the model, using PyTorch default implementation.."
@@ -243,7 +243,7 @@ class VeomniEngine(BaseEngine):
         if isinstance(grad_norm, DTensor):
             grad_norm = grad_norm.full_tensor()
 
-        grad_norm = torch.tensor(grad_norm)
+        # grad_norm = torch.tensor(grad_norm)
         # if grad_norm is not finite, skip the update
         if not torch.isfinite(grad_norm):
             print(f"WARN: grad_norm is not finite: {grad_norm}")
@@ -365,6 +365,7 @@ class VeomniEngine(BaseEngine):
                     "input_ids": input_ids,
                     "attention_mask": attention_mask,
                     "position_ids": position_ids,
+                    "labels": input_ids_rmpad_rolled,
                 }
             else:
                 raise NotImplementedError(f"pad_mode {pad_mode} not implemented")
