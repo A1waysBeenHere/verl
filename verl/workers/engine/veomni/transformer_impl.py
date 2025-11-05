@@ -566,15 +566,15 @@ class VeomniEngine(BaseEngine):
 
     def get_per_tensor_param(self):
         raise NotImplementedError
-
-    def get_data_parallel_size(self):
-        return torch.distributed.get_world_size() // parallel_state._PARALLEL_STATE.ulysses_size
-
     def get_data_parallel_rank(self):
         if parallel_state._PARALLEL_STATE.ulysses_size > 1:
             return parallel_state._PARALLEL_STATE.device_mesh["dp"].get_local_rank()
         else:
             return torch.distributed.get_rank()
+
+    def get_data_parallel_size(self):
+        return torch.distributed.get_world_size() // parallel_state._PARALLEL_STATE.ulysses_size
+
 
     def get_data_parallel_group(self):
         if parallel_state._PARALLEL_STATE.ulysses_size > 1:
