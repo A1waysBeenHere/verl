@@ -330,7 +330,7 @@ class VeomniEngine(BaseEngine):
                 "input_ids": input_ids_rmpad,
                 "attention_mask": None,
                 "position_ids": position_ids_rmpad,
-                "labels": torch.tensor(input_ids_rmpad),
+                "labels": input_ids_rmpad_rolled,
             }
 
         else:
@@ -548,12 +548,12 @@ class VeomniEngine(BaseEngine):
             with self.model_fwd_context:
                 loss, meta_info = self.forward_step(micro_batch, loss_function=loss_function, forward_only=forward_only, mbs_len=len(micro_batches))
             if not forward_only:
-                global_bsz = data["global_batch_size"]
-                local_micro_bsz = micro_batch.batch_size[0]
-                # metrics contain the output, loss is dummy
-                loss_scale_factor = local_micro_bsz / (global_bsz / self.get_data_parallel_size())
-                # scale loss
-                loss = loss * loss_scale_factor
+                # global_bsz = data["global_batch_size"]
+                # local_micro_bsz = micro_batch.batch_size[0]
+                # # metrics contain the output, loss is dummy
+                # loss_scale_factor = local_micro_bsz / (global_bsz / self.get_data_parallel_size())
+                # # scale loss
+                # loss = loss * loss_scale_factor
                 with self.model_bwd_context:
                     loss.backward()
 
