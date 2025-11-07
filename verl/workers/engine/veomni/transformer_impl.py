@@ -1,3 +1,4 @@
+import logging
 import torch
 import torch.distributed as dist
 from torch.distributed.tensor import DTensor
@@ -15,6 +16,7 @@ from verl.utils.device import (
 )
 from verl.utils.torch_functional import logprobs_from_logits
 from verl.utils.dataset.dataset_utils import DatasetPadMode
+from verl.utils.logger import log_with_rank
 from ..base import BaseEngine, EngineRegistry
 from ..utils import postprocess_batch_func, prepare_micro_batches
 from veomni.distributed import parallel_state
@@ -24,6 +26,8 @@ from veomni.distributed.torch_parallelize import build_parallelize_model
 from veomni.optim import build_lr_scheduler, build_optimizer
 from veomni.checkpoint import build_checkpointer, ckpt_to_state_dict
 
+
+logger = logging.getLogger(__file__)
 
 @EngineRegistry.register(model_type="language_model", backend=["veomni"], device=["cuda", "npu"])
 class VeomniEngine(BaseEngine):
@@ -190,8 +194,9 @@ class VeomniEngine(BaseEngine):
         **kwargs,
     ) -> None:
         self.checkpoint_manager.save(
-            local_path, global_step
+            path=local_path, global_steps=global_step
         )
+
 
 
     def load_checkpoint(
