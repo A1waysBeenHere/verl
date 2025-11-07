@@ -193,8 +193,20 @@ class VeomniEngine(BaseEngine):
         max_ckpt_to_keep: Optional[int] = None,
         **kwargs,
     ) -> None:
+        
+        state = {
+            "model": self.model,
+            "optimizer": self.optimizer,
+            "extra_state": {
+                "global_step": global_step,
+                "lr_scheduler": self.lr_scheduler.state_dict(),
+                # "train_dataloader": self.train_dataloader.state_dict(),
+                # "environ_meter": self.environ_meter.state_dict(),
+                "torch_rng_state": torch.get_rng_state(),
+            },
+        }
         self.checkpoint_manager.save(
-            path=local_path, global_steps=global_step
+            path=local_path, state=state, global_steps=global_step
         )
 
 
