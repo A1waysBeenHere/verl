@@ -117,6 +117,7 @@ class SFTTrainer:
             engine_config=self.engine_config,
             optimizer_config=self.optimizer_config,
             checkpoint_config=self.checkpoint_config,
+            data_config=self.config.data,
         )
 
     def _init_engine(self):

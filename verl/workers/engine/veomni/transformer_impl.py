@@ -25,6 +25,7 @@ from veomni.distributed.offloading import build_activation_offloading_context
 from veomni.distributed.torch_parallelize import build_parallelize_model
 from veomni.optim import build_lr_scheduler, build_optimizer
 from veomni.checkpoint import build_checkpointer, ckpt_to_state_dict
+from veomni.utils import helper
 
 
 logger = logging.getLogger(__file__)
@@ -37,6 +38,7 @@ class VeomniEngine(BaseEngine):
         engine_config: VeomniEngineConfig,
         optimizer_config: VeomniOptimizerConfig,
         checkpoint_config: CheckpointConfig,
+        **kwargs,
     ):
         """
         Initialize the FSDPEngine.
@@ -52,6 +54,8 @@ class VeomniEngine(BaseEngine):
         self.engine_config = engine_config
         self.optimizer_config = optimizer_config
         self.checkpoint_config = checkpoint_config
+        self.data_config = kwargs("data_config", None)
+        self.train_dataloader = kwargs("train_dataloader", None)
 
         self.mode = None
 
@@ -162,6 +166,17 @@ class VeomniEngine(BaseEngine):
         #     lr_start=0.0,
         # )
 
+        self.environ_meter = helper.EnvironMeter(
+            config=model_config,
+            global_batch_size=self.data_config.global_batch_size,
+            rmpad=self.model_config.use_remove_padding,
+            rmpad_with_pos_ids=self.model_config.rmpad_with_pos_ids,
+            empty_cache_steps=self.engine_config.empty_cache_steps,
+            enable_multisource=self.data_config.enable_multisource,
+            dataloader=self.train_dataloader,
+            data_path=self.data_config.train_path,
+        )
+
         # if self.engine_config.load_checkpoint_path:
         if False:
             state = {"model": self.model, "optimizer": self.optimizer, "extra_state": {}}  # cannot be None
@@ -201,7 +216,7 @@ class VeomniEngine(BaseEngine):
                 "global_step": global_step,
                 "lr_scheduler": self.lr_scheduler.state_dict(),
                 # "train_dataloader": self.train_dataloader.state_dict(),
-                # "environ_meter": self.environ_meter.state_dict(),
+                "environ_meter": self.environ_meter.state_dict(),
                 "torch_rng_state": torch.get_rng_state(),
             },
         }
