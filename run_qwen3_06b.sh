@@ -43,7 +43,7 @@ echo "Using fsdp engine"
 exp_name=nvidia-openmathreasoning-qwen3-8b-${backend}-${DATA_PARALLEL_MODE}-sp${SP_SIZE}-fsdp-1008a1
 
 
-CKPT_HOME=${CKPT_HOME:-$HOME/open_verl/sft/${project_name}/${exp_name}}
+CKPT_HOME=${CKPT_HOME:/data/m30061825/saved_ckpts}}
 mkdir -p "${CKPT_HOME}"
 
 torchrun --standalone --nnodes=1 --nproc-per-node=2 \
