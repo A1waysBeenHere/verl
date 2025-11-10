@@ -261,6 +261,6 @@ class EngineRegistry:
         """
         engine_cls = cls.get_engine_cls(model_type, backend)
         if backend != "veomni":
-            kwargs.pop("data_config", None)
+            kwargs.pop("config", None)
             kwargs.pop("train_dataloader", None)
         return engine_cls(*args, **kwargs)

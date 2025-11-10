@@ -174,6 +174,7 @@ class VeomniEngineConfig(BaseConfig):
     # enable_activation_offload: bool = False
     # activation_gpu_limit: float = 0.0
     # basic_modules: Optional[List[str]] = None
+    load_checkpoint_path: Optional[str] = None
 
 
     _mutable_fields = BaseConfig._mutable_fields.copy()

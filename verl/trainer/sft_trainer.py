@@ -39,6 +39,7 @@ from verl.utils.distributed import destroy_global_process_group
 from verl.utils.flops_counter import FlopsCounter
 from verl.utils.logger import log_with_rank
 from verl.utils.tracking import Tracking
+from veomni.checkpoint import build_checkpointer, ckpt_to_state_dict
 
 if is_cuda_available:
     pass
@@ -117,7 +118,7 @@ class SFTTrainer:
             engine_config=self.engine_config,
             optimizer_config=self.optimizer_config,
             checkpoint_config=self.checkpoint_config,
-            data_config=self.config.data,
+            config=self.config,
         )
 
     def _init_engine(self):

@@ -16,7 +16,26 @@ from verl.utils.device import (
 )
 from verl.utils.torch_functional import logprobs_from_logits
 from verl.utils.dataset.dataset_utils import DatasetPadMode
+from verl.utils.checkpoint.fsdp_checkpoint_manager import FSDPCheckpointManager
 from verl.utils.logger import log_with_rank
+from verl.utils.fsdp_utils import (
+    CPUOffloadPolicy,
+    FSDPModule,
+    MixedPrecisionPolicy,
+    apply_fsdp2,
+    collect_lora_params,
+    fsdp2_clip_grad_norm_,
+    fsdp2_load_full_state_dict,
+    fsdp_version,
+    get_fsdp_wrap_policy,
+    get_init_weight_context_manager,
+    init_fn,
+    load_fsdp_model_to_gpu,
+    load_fsdp_optimizer,
+    offload_fsdp_model_to_cpu,
+    offload_fsdp_optimizer,
+    replace_lora_wrapper,
+)
 from ..base import BaseEngine, EngineRegistry
 from ..utils import postprocess_batch_func, prepare_micro_batches
 from veomni.distributed import parallel_state
@@ -54,7 +73,7 @@ class VeomniEngine(BaseEngine):
         self.engine_config = engine_config
         self.optimizer_config = optimizer_config
         self.checkpoint_config = checkpoint_config
-        self.data_config = kwargs("data_config", None)
+        self.config = kwargs("config", None)
         self.train_dataloader = kwargs("train_dataloader", None)
 
         self.mode = None
@@ -101,8 +120,10 @@ class VeomniEngine(BaseEngine):
         Sets up checkpoint manager and FLOPs counter.
         """
 
-        self.checkpoint_manager = build_checkpointer(dist_backend=self.engine_config.data_parallel_mode, ckpt_manager=self.engine_config.ckpt_manager)
+        # self.checkpoint_manager = build_checkpointer(dist_backend=self.engine_config.data_parallel_mode, ckpt_manager=self.engine_config.ckpt_manager)
         # This is used to import external_lib into the huggingface systems
+
+
         self.model = build_foundation_model(
             config_path=self.model_config.hf_config_path,
             weights_path=self.model_config.path,
@@ -166,32 +187,25 @@ class VeomniEngine(BaseEngine):
         #     lr_start=0.0,
         # )
 
-        self.environ_meter = helper.EnvironMeter(
-            config=model_config,
-            global_batch_size=self.data_config.global_batch_size,
-            rmpad=self.model_config.use_remove_padding,
-            rmpad_with_pos_ids=self.model_config.rmpad_with_pos_ids,
-            empty_cache_steps=self.engine_config.empty_cache_steps,
-            enable_multisource=self.data_config.enable_multisource,
-            dataloader=self.train_dataloader,
-            data_path=self.data_config.train_path,
+        # self.environ_meter = helper.EnvironMeter(
+        #     config=model_config,
+        #     global_batch_size=self.config.data.global_batch_size,
+        #     rmpad=self.model_config.use_remove_padding,
+        #     rmpad_with_pos_ids=self.model_config.rmpad_with_pos_ids,
+        #     empty_cache_steps=self.engine_config.empty_cache_steps,
+        #     enable_multisource=self.config.data.enable_multisource,
+        #     dataloader=self.train_dataloader,
+        #     data_path=self.config.data.train_path,
+        # )
+
+
+        self.checkpoint_manager = FSDPCheckpointManager(
+            model=self.model,
+            optimizer=self.optimizer,
+            lr_scheduler=self.lr_scheduler,
+            processing_class=self.model_config.get_processor(),
+            checkpoint_contents=self.checkpoint_config,
         )
-
-        # if self.engine_config.load_checkpoint_path:
-        if False:
-            state = {"model": self.model, "optimizer": self.optimizer, "extra_state": {}}  # cannot be None
-            self.checkpoint_manager.load(self.engine_config.load_checkpoint_path, state)
-            global_step = state["extra_state"]["global_step"]
-            start_epoch = global_step // self.engine_config.train_steps
-            start_step = global_step % self.engine_config.train_steps
-            self.lr_scheduler.load_state_dict(state["extra_state"]["lr_scheduler"])
-            # train_dataloader.load_state_dict(state["extra_state"]["train_dataloader"])
-            # environ_meter.load_state_dict(state["extra_state"]["environ_meter"])
-            torch.set_rng_state(state["extra_state"]["torch_rng_state"])
-            # if start_step == 0:  # resume at the end of epoch
-            #     iter(train_dataloader)  # clear resume state and prefetch data
-
-            dist.barrier()
         
         self.model_fwd_context, self.model_bwd_context = build_activation_offloading_context(
             self.model_config.enable_activation_offload, self.model_config.enable_gradient_checkpointing, self.model_config.activation_gpu_limit
@@ -209,29 +223,36 @@ class VeomniEngine(BaseEngine):
         **kwargs,
     ) -> None:
         
-        state = {
-            "model": self.model,
-            "optimizer": self.optimizer,
-            "extra_state": {
-                "global_step": global_step,
-                "lr_scheduler": self.lr_scheduler.state_dict(),
-                # "train_dataloader": self.train_dataloader.state_dict(),
-                "environ_meter": self.environ_meter.state_dict(),
-                "torch_rng_state": torch.get_rng_state(),
-            },
-        }
-        self.checkpoint_manager.save(
-            path=local_path, state=state, global_steps=global_step
+        if self._is_offload_param:
+            load_fsdp_model_to_gpu(self.module)
+
+        self.checkpoint_manager.save_checkpoint(
+            local_path=local_path, hdfs_path=hdfs_path, global_step=global_step, max_ckpt_to_keep=max_ckpt_to_keep
         )
+
+        torch.distributed.barrier()
+        if self._is_offload_param:
+            offload_fsdp_model_to_cpu(self.module)
 
 
 
     def load_checkpoint(
         self, local_path: str, hdfs_path: Optional[str] = None, del_local_after_load: bool = True, **kwargs
     ) -> None:
-        self.checkpoint_manager.load(
-            local_path
+
+        if self._is_offload_param:
+            load_fsdp_model_to_gpu(self.module)
+
+        self.checkpoint_manager.load_checkpoint(
+            local_path=local_path, hdfs_path=hdfs_path, del_local_after_load=del_local_after_load
         )
+
+        dist.barrier()
+        if self._is_offload_param:
+            offload_fsdp_model_to_cpu(self.module)
+
+        if self._is_offload_optimizer:
+            offload_fsdp_optimizer(self.optimizer)
 
     def train_mode(self):
         """
