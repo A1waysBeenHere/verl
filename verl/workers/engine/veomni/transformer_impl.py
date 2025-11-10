@@ -383,7 +383,7 @@ class VeomniEngine(BaseEngine):
                 "input_ids": input_ids_rmpad,
                 "attention_mask": None,
                 "position_ids": position_ids_rmpad,
-                "labels": input_ids_rmpad_rolled,
+                # "labels": input_ids_rmpad_rolled,
             }
 
         else:
@@ -418,7 +418,7 @@ class VeomniEngine(BaseEngine):
                     "input_ids": input_ids,
                     "attention_mask": attention_mask,
                     "position_ids": position_ids,
-                    "labels": input_ids_rmpad_rolled,
+                    # "labels": input_ids_rmpad_rolled,
                 }
             else:
                 raise NotImplementedError(f"pad_mode {pad_mode} not implemented")
