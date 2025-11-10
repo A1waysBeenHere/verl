@@ -73,8 +73,8 @@ class VeomniEngine(BaseEngine):
         self.engine_config = engine_config
         self.optimizer_config = optimizer_config
         self.checkpoint_config = checkpoint_config
-        self.config = kwargs("config", None)
-        self.train_dataloader = kwargs("train_dataloader", None)
+        self.config = kwargs.pop("config", None)
+        self.train_dataloader = kwargs.pop("train_dataloader", None)
 
         self.mode = None
 
