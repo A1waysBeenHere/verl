@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 from omegaconf import MISSING
 from transformers import AutoConfig
@@ -89,6 +89,16 @@ class HFModelConfig(BaseConfig):
     fused_kernel_options: dict = field(default_factory=dict)
 
     architectures: Optional[list[str]] = None
+    
+    enable_fsdp_offload: bool = False
+    enable_reentrant: bool = False
+    attn_implementation: str = "flash_attention_2"
+    moe_implementation: str = "eager"
+    force_use_huggingface: bool = False
+    activation_gpu_limit: float = 0.0
+    basic_modules: Optional[List[str]] = field(default_factory=list)
+
+
 
     def __post_init__(self):
         import_external_libs(self.external_lib)
