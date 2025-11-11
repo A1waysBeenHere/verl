@@ -52,6 +52,7 @@ class OptimizerConfig(BaseConfig):
             warnings.warn("`grad_clip` is deprecated, use `clip_grad` instead.", DeprecationWarning, stacklevel=2)
             self.clip_grad = self.grad_clip
 
+
 @dataclass
 class VeomniOptimizerConfig(OptimizerConfig):
     """FSDP optimizer configuration extending base OptimizerConfig.
@@ -79,10 +80,16 @@ class VeomniOptimizerConfig(OptimizerConfig):
 
     def __post_init__(self):
         if self.max_grad_norm is not None:
-            warnings.warn("`max_grad_norm` is for Veomni, be replaced with `clip_grad` instead.", UserWarning, stacklevel=2)
+            warnings.warn(
+                "`max_grad_norm` is for Veomni, be replaced with `clip_grad` instead.", UserWarning, stacklevel=2
+            )
             self.clip_grad = self.max_grad_norm
         if self.lr_warmup_ratio is not None:
-            warnings.warn("`lr_warmup_ratio` is for Veomni, be replaced with `lr_warmup_steps_ratio` instead.", UserWarning, stacklevel=2)
+            warnings.warn(
+                "`lr_warmup_ratio` is for Veomni, be replaced with `lr_warmup_steps_ratio` instead.",
+                UserWarning,
+                stacklevel=2,
+            )
             self.lr_warmup_steps_ratio = self.lr_warmup_ratio
         return super().__post_init__()
 

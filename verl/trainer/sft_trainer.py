@@ -39,7 +39,6 @@ from verl.utils.distributed import destroy_global_process_group
 from verl.utils.flops_counter import FlopsCounter
 from verl.utils.logger import log_with_rank
 from verl.utils.tracking import Tracking
-from veomni.checkpoint import build_checkpointer, ckpt_to_state_dict
 
 if is_cuda_available:
     pass

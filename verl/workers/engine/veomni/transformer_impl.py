@@ -1,53 +1,53 @@
+# Copyright 2024 Bytedance Ltd. and/or its affiliates
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
 import logging
+from typing import Any, Callable, Optional
+
 import torch
 import torch.distributed as dist
-from torch.distributed.tensor import DTensor
-from typing import Any, Callable, Optional
 from tensordict import TensorDict
+from torch.distributed.tensor import DTensor
+from veomni.distributed import parallel_state
+from veomni.distributed.offloading import build_activation_offloading_context
+from veomni.distributed.torch_parallelize import build_parallelize_model
+from veomni.models.auto import build_foundation_model
+from veomni.optim import build_lr_scheduler, build_optimizer
 
 import verl.utils.torch_functional as verl_F
-from verl.workers.config import VeomniEngineConfig, VeomniOptimizerConfig, HFModelConfig
 from verl.trainer.config import CheckpointConfig
 from verl.utils import tensordict_utils as tu
+from verl.utils.checkpoint.fsdp_checkpoint_manager import FSDPCheckpointManager
+from verl.utils.dataset.dataset_utils import DatasetPadMode
 from verl.utils.device import (
     get_device_id,
     get_device_name,
-    get_torch_device,
 )
-from verl.utils.torch_functional import logprobs_from_logits
-from verl.utils.dataset.dataset_utils import DatasetPadMode
-from verl.utils.checkpoint.fsdp_checkpoint_manager import FSDPCheckpointManager
-from verl.utils.logger import log_with_rank
 from verl.utils.fsdp_utils import (
-    CPUOffloadPolicy,
-    FSDPModule,
-    MixedPrecisionPolicy,
-    apply_fsdp2,
-    collect_lora_params,
-    fsdp2_clip_grad_norm_,
-    fsdp2_load_full_state_dict,
-    fsdp_version,
-    get_fsdp_wrap_policy,
-    get_init_weight_context_manager,
-    init_fn,
     load_fsdp_model_to_gpu,
-    load_fsdp_optimizer,
     offload_fsdp_model_to_cpu,
     offload_fsdp_optimizer,
-    replace_lora_wrapper,
 )
+from verl.utils.torch_functional import logprobs_from_logits
+from verl.workers.config import HFModelConfig, VeomniEngineConfig, VeomniOptimizerConfig
+
 from ..base import BaseEngine, EngineRegistry
 from ..utils import postprocess_batch_func, prepare_micro_batches
-from veomni.distributed import parallel_state
-from veomni.models.auto import build_tokenizer, build_processor, build_foundation_model
-from veomni.distributed.offloading import build_activation_offloading_context
-from veomni.distributed.torch_parallelize import build_parallelize_model
-from veomni.optim import build_lr_scheduler, build_optimizer
-from veomni.checkpoint import build_checkpointer, ckpt_to_state_dict
-from veomni.utils import helper
-
 
 logger = logging.getLogger(__file__)
+
 
 @EngineRegistry.register(model_type="language_model", backend=["veomni"], device=["cuda", "npu"])
 class VeomniEngine(BaseEngine):
@@ -90,7 +90,7 @@ class VeomniEngine(BaseEngine):
             cp_size=self.engine_config.context_parallel_size,
             ulysses_size=self.engine_config.ulysses_parallel_size,
             dp_mode=self.engine_config.data_parallel_mode,
-            # dp_mode=self.engine_config.strategy      
+            # dp_mode=self.engine_config.strategy
         )
 
         self.use_remove_padding = self.model_config.use_remove_padding
@@ -111,7 +111,6 @@ class VeomniEngine(BaseEngine):
             else entropy_from_logits
         )
 
-
     def initialize(self):
         """
         Build the model, optimizer, and learning rate scheduler under FSDP.
@@ -120,21 +119,14 @@ class VeomniEngine(BaseEngine):
         Sets up checkpoint manager and FLOPs counter.
         """
 
-        # self.checkpoint_manager = build_checkpointer(dist_backend=self.engine_config.data_parallel_mode, ckpt_manager=self.engine_config.ckpt_manager)
-        # This is used to import external_lib into the huggingface systems
-
-
         self.model = build_foundation_model(
             config_path=self.model_config.hf_config_path,
             weights_path=self.model_config.path,
             torch_dtype="float32" if self.engine_config.enable_mixed_precision else "bfloat16",
             attn_implementation=self.model_config.attn_implementation,
-            # attn_implementation="flash_attention_2",
             moe_implementation=self.model_config.moe_implementation,
-            # moe_implementation="eager",
             init_device=self.engine_config.init_device,
             force_use_huggingface=self.model_config.force_use_huggingface,
-            # force_use_huggingface=False
         )
 
         model_config = self.model.config
@@ -182,12 +174,12 @@ class VeomniEngine(BaseEngine):
             processing_class=self.model_config.get_processor(),
             checkpoint_contents=self.checkpoint_config,
         )
-        
-        self.model_fwd_context, self.model_bwd_context = build_activation_offloading_context(
-            self.model_config.enable_activation_offload, self.model_config.enable_gradient_checkpointing, self.model_config.activation_gpu_limit
-        )
 
-    
+        self.model_fwd_context, self.model_bwd_context = build_activation_offloading_context(
+            self.model_config.enable_activation_offload,
+            self.model_config.enable_gradient_checkpointing,
+            self.model_config.activation_gpu_limit,
+        )
 
     def save_checkpoint(
         self,
@@ -197,9 +189,8 @@ class VeomniEngine(BaseEngine):
         max_ckpt_to_keep: Optional[int] = None,
         **kwargs,
     ) -> None:
-        
         if self._is_offload_param:
-            load_fsdp_model_to_gpu(self.module)
+            load_fsdp_model_to_gpu(self.model)
 
         self.checkpoint_manager.save_checkpoint(
             local_path=local_path, hdfs_path=hdfs_path, global_step=global_step, max_ckpt_to_keep=max_ckpt_to_keep
@@ -207,16 +198,13 @@ class VeomniEngine(BaseEngine):
 
         torch.distributed.barrier()
         if self._is_offload_param:
-            offload_fsdp_model_to_cpu(self.module)
-
-
+            offload_fsdp_model_to_cpu(self.model)
 
     def load_checkpoint(
         self, local_path: str, hdfs_path: Optional[str] = None, del_local_after_load: bool = True, **kwargs
     ) -> None:
-
         if self._is_offload_param:
-            load_fsdp_model_to_gpu(self.module)
+            load_fsdp_model_to_gpu(self.model)
 
         self.checkpoint_manager.load_checkpoint(
             local_path=local_path, hdfs_path=hdfs_path, del_local_after_load=del_local_after_load
@@ -224,7 +212,7 @@ class VeomniEngine(BaseEngine):
 
         dist.barrier()
         if self._is_offload_param:
-            offload_fsdp_model_to_cpu(self.module)
+            offload_fsdp_model_to_cpu(self.model)
 
         if self._is_offload_optimizer:
             offload_fsdp_optimizer(self.optimizer)
@@ -271,7 +259,6 @@ class VeomniEngine(BaseEngine):
         if isinstance(grad_norm, DTensor):
             grad_norm = grad_norm.full_tensor()
 
-        # grad_norm = torch.tensor(grad_norm)
         # if grad_norm is not finite, skip the update
         if not torch.isfinite(grad_norm):
             print(f"WARN: grad_norm is not finite: {grad_norm}")
@@ -290,7 +277,7 @@ class VeomniEngine(BaseEngine):
         self.lr_scheduler.step()
         lr = self.lr_scheduler.get_last_lr()[0]  # only return the first group
         return lr
-    
+
     # Need Fix
     def prepare_model_inputs(self, micro_batch: TensorDict):
         use_remove_padding = tu.get_non_tensor_data(data=micro_batch, key="use_remove_padding", default=True)
@@ -327,7 +314,7 @@ class VeomniEngine(BaseEngine):
 
             # pad and slice the inputs if sp > 1
             # if self.use_ulysses_sp:
-            #     is_vlm_model = hasattr(getattr(self.module, "module", self.module).config, "vision_config")
+            #     is_vlm_model = hasattr(getattr(self.model, "module", self.model).config, "vision_config")
             #     if is_vlm_model:
             #         # vlm model's inputs will be sliced after embedding
             #         input_ids_rmpad, position_ids_rmpad, pad_size = ulysses_pad(
@@ -407,7 +394,7 @@ class VeomniEngine(BaseEngine):
         model_inputs.update(extra_args)
 
         return model_inputs, output_args
-    
+
     # Need Fix
     def prepare_model_outputs(self, output, output_args, micro_batch: TensorDict):
         use_remove_padding = tu.get_non_tensor_data(data=micro_batch, key="use_remove_padding", default=True)
@@ -514,7 +501,7 @@ class VeomniEngine(BaseEngine):
             model_output["entropy"] = entropy
 
         return model_output
-    
+
     def forward_step(self, micro_batch: TensorDict, loss_function, forward_only, mbs_len):
         device_name = get_device_name()
         # actually, we should avoid assigning like this...
@@ -527,7 +514,6 @@ class VeomniEngine(BaseEngine):
                 use_cache=False,
             )  # prevent model thinks we are generating
 
-            print(f"====>raw_output: {raw_output}")
             model_output = self.prepare_model_outputs(
                 output=raw_output, output_args=output_args, micro_batch=micro_batch
             )
@@ -571,7 +557,9 @@ class VeomniEngine(BaseEngine):
 
         for micro_batch in micro_batches:
             with self.model_fwd_context:
-                loss, meta_info = self.forward_step(micro_batch, loss_function=loss_function, forward_only=forward_only, mbs_len=len(micro_batches))
+                loss, meta_info = self.forward_step(
+                    micro_batch, loss_function=loss_function, forward_only=forward_only, mbs_len=len(micro_batches)
+                )
             if not forward_only:
                 global_bsz = data["global_batch_size"]
                 local_micro_bsz = micro_batch.batch_size[0]
@@ -586,10 +574,9 @@ class VeomniEngine(BaseEngine):
 
         return postprocess_batch_func(output_lst=output_lst, indices=indices, data=data)
 
-    
-
     def get_per_tensor_param(self):
         raise NotImplementedError
+
     def get_data_parallel_rank(self):
         if parallel_state._PARALLEL_STATE.ulysses_size > 1:
             return parallel_state._PARALLEL_STATE.device_mesh["dp"].get_local_rank()
@@ -598,7 +585,6 @@ class VeomniEngine(BaseEngine):
 
     def get_data_parallel_size(self):
         return torch.distributed.get_world_size() // parallel_state._PARALLEL_STATE.ulysses_size
-
 
     def get_data_parallel_group(self):
         if parallel_state._PARALLEL_STATE.ulysses_size > 1:
@@ -626,11 +612,8 @@ class VeomniEngine(BaseEngine):
         else:
             is_collect = True
         return is_collect
-    
 
-# TODO: 
-# Figure out if it is necessary in VeomniEngine, or we can use
-#  CPUOffload to achieve auto offload/load operations.
+
 class EngineTrainModeCtx:
     def __init__(self, engine: VeomniEngine):
         self.engine = engine
@@ -646,15 +629,12 @@ class EngineTrainModeCtx:
         self.engine.mode = None
 
 
-# TODO: 
-# Figure out if it is necessary in VeomniEngine, or we can use
-#  CPUOffload to achieve auto offload/load operations.
 class EngineEvalModeCtx:
     def __init__(self, engine: VeomniEngine):
         self.engine = engine
 
     def __enter__(self):
         assert isinstance(self.engine, VeomniEngine)
-        pass
+
     def __exit__(self, exc_type, exc_value, traceback):
-        pass
+        assert isinstance(self.engine, VeomniEngine)

@@ -14,7 +14,7 @@
 
 import warnings
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Literal, Optional, TypeVar, Union, get_type_hints
+from typing import Any, Literal, Optional
 
 from verl.base_config import BaseConfig
 
@@ -176,15 +176,16 @@ class VeomniEngineConfig(BaseConfig):
     # basic_modules: Optional[List[str]] = None
     load_checkpoint_path: Optional[str] = None
 
-
     _mutable_fields = BaseConfig._mutable_fields.copy()
     _mutable_fields.add("forward_prefetch")
 
     def __post_init__(self):
-        
         if self.enable_forward_prefetch is not None:
-            warnings.warn("`enable_forward_prefetch` is for Veomni, be replaced with `forward_prefetch` instead.", UserWarning, stacklevel=2)
+            warnings.warn(
+                "`enable_forward_prefetch` is for Veomni, be replaced with `forward_prefetch` instead.",
+                UserWarning,
+                stacklevel=2,
+            )
             self.forward_prefetch = self.enable_forward_prefetch
-
 
         assert self.strategy in ["veomni"], f"strategy {self.strategy} not supported"
