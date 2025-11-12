@@ -103,7 +103,7 @@ class VeomniEngine(BaseEngine):
         self._is_offload_optimizer = self.engine_config.optimizer_offload
         self._is_lora = self.model_config.lora_rank > 0
 
-        self.ulysses_sharding_manager = FSDPUlyssesShardingManager(parallel_state.get_parallel_state().sp_group)
+        self.ulysses_sharding_manager = FSDPUlyssesShardingManager(parallel_state.get_parallel_state().device_mesh)
         self.use_ulysses_sp = parallel_state.get_parallel_state().sp_enabled
 
         if self.engine_config.entropy_from_logits_with_chunking:
@@ -629,18 +629,18 @@ class EngineTrainModeCtx:
     def __enter__(self):
         self.engine.mode = "train"
         if self.engine._is_offload_param:
-            load_fsdp_model_to_gpu(self.engine.module)
+            load_fsdp_model_to_gpu(self.engine.model)
         if self.engine._is_offload_optimizer:
             load_fsdp_optimizer(optimizer=self.engine.optimizer, device_id=get_torch_device().current_device())
         self.engine.ulysses_sharding_manager.__enter__()
-        self.engine.module.train()
+        self.engine.model.train()
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.engine.ulysses_sharding_manager.__exit__(exc_type, exc_value, traceback)
         self.engine.optimizer_zero_grad()
 
         if self.engine._is_offload_param:
-            offload_fsdp_model_to_cpu(self.engine.module)
+            offload_fsdp_model_to_cpu(self.engine.model)
         if self.engine._is_offload_optimizer:
             offload_fsdp_optimizer(optimizer=self.engine.optimizer)
         self.engine.mode = None
