@@ -396,7 +396,7 @@ class VeOmniEngineWithLMHead(VeomniEngine):
 
             # pad and slice the inputs if sp > 1
             if self.use_ulysses_sp:
-                is_vlm_model = hasattr(getattr(self.module, "module", self.module).config, "vision_config")
+                is_vlm_model = hasattr(getattr(self.model, "module", self.model).config, "vision_config")
                 if is_vlm_model:
                     # vlm model's inputs will be sliced after embedding
                     input_ids_rmpad, position_ids_rmpad, pad_size = ulysses_pad(
