@@ -12,7 +12,7 @@ project_name=verl_sft_test
 RESUME_MODE=auto
 MODEL_ID=${MODEL_ID:-/data/xxx/Qwen3-0.6B}
 
-SP_SIZE=${SP_SIZE:-1}
+SP_SIZE=${SP_SIZE:-2}
 FSDP_SIZE=${FSDP_SIZE:-2}
 STRATEGY=${STRATEGY:-"veomni"}
 DATA_PARALLEL_MODE=${DATA_PARALLEL_MODE:-"fsdp2"}
@@ -46,7 +46,7 @@ exp_name=nvidia-openmathreasoning-qwen3-8b-${backend}-${DATA_PARALLEL_MODE}-sp${
 CKPT_HOME=${CKPT_HOME:-/data/xxx/saved_ckpts}
 mkdir -p "${CKPT_HOME}"
 
-torchrun --standalone --nnodes=1 --nproc-per-node=2 \
+torchrun --standalone --nnodes=1 --nproc-per-node=4 \
     ${ENTRYPOINT} \
     data.train_files="${TRAIN_FILES}" \
     data.train_batch_size=96 \

@@ -41,6 +41,7 @@ from verl.utils.fsdp_utils import (
     offload_fsdp_optimizer,
 )
 from verl.utils.torch_functional import logprobs_from_logits
+from verl.utils.ulysses import gather_outputs_and_unpad, ulysses_pad, ulysses_pad_and_slice_inputs
 from verl.workers.config import HFModelConfig, VeomniEngineConfig, VeomniOptimizerConfig
 
 from ..base import BaseEngine, EngineRegistry
@@ -98,6 +99,8 @@ class VeomniEngine(BaseEngine):
         self._is_offload_param = self.engine_config.param_offload
         self._is_offload_optimizer = self.engine_config.optimizer_offload
         self._is_lora = self.model_config.lora_rank > 0
+
+        self.use_ulysses_sp = parallel_state._PARALLEL_STATE.sp_enabled
 
         if self.engine_config.entropy_from_logits_with_chunking:
             entropy_from_logits = verl_F.entropy_from_logits_with_chunking
@@ -330,7 +333,7 @@ class VeomniEngine(BaseEngine):
 
     def get_data_parallel_group(self):
         if parallel_state._PARALLEL_STATE.ulysses_size > 1:
-            return parallel_state._PARALLEL_STATE.device_mesh["dp"]
+            return parallel_state._PARALLEL_STATE.device_mesh.get_group(mesh_dim="dp")
         else:
             return torch.distributed.group.WORLD
 
@@ -392,28 +395,28 @@ class VeOmniEngineWithLMHead(VeomniEngine):
             input_ids_rmpad_rolled = torch.roll(input_ids_rmpad, shifts=-1, dims=1)  # (1, total_nnz)
 
             # pad and slice the inputs if sp > 1
-            # if self.use_ulysses_sp:
-            #     is_vlm_model = hasattr(getattr(self.model, "module", self.model).config, "vision_config")
-            #     if is_vlm_model:
-            #         # vlm model's inputs will be sliced after embedding
-            #         input_ids_rmpad, position_ids_rmpad, pad_size = ulysses_pad(
-            #             input_ids_rmpad,
-            #             position_ids_rmpad=position_ids_rmpad,
-            #             sp_size=self.ulysses_sequence_parallel_size,
-            #         )
-            #     else:
-            #         input_ids_rmpad, position_ids_rmpad, pad_size = ulysses_pad_and_slice_inputs(
-            #             input_ids_rmpad,
-            #             position_ids_rmpad=position_ids_rmpad,
-            #             sp_size=self.ulysses_sequence_parallel_size,
-            #         )
-            #     input_ids_rmpad_rolled, _, _ = ulysses_pad_and_slice_inputs(
-            #         input_ids_rmpad_rolled,
-            #         position_ids_rmpad=None,
-            #         sp_size=self.ulysses_sequence_parallel_size,
-            #     )
+            if self.use_ulysses_sp:
+                is_vlm_model = hasattr(getattr(self.module, "module", self.module).config, "vision_config")
+                if is_vlm_model:
+                    # vlm model's inputs will be sliced after embedding
+                    input_ids_rmpad, position_ids_rmpad, pad_size = ulysses_pad(
+                        input_ids_rmpad,
+                        position_ids_rmpad=position_ids_rmpad,
+                        sp_size=self.engine_config.ulysses_parallel_size,
+                    )
+                else:
+                    input_ids_rmpad, position_ids_rmpad, pad_size = ulysses_pad_and_slice_inputs(
+                        input_ids_rmpad,
+                        position_ids_rmpad=position_ids_rmpad,
+                        sp_size=self.engine_config.ulysses_parallel_size,
+                    )
+                input_ids_rmpad_rolled, _, _ = ulysses_pad_and_slice_inputs(
+                    input_ids_rmpad_rolled,
+                    position_ids_rmpad=None,
+                    sp_size=self.engine_config.ulysses_parallel_size,
+                )
 
-            #     output_args["pad_size"] = pad_size
+                output_args["pad_size"] = pad_size
 
             input_ids_rmpad_rolled = input_ids_rmpad_rolled.squeeze(0)  # ((total_nnz / sp) + pad)
             output_args["input_ids_rmpad_rolled"] = input_ids_rmpad_rolled
@@ -515,23 +518,23 @@ class VeOmniEngineWithLMHead(VeomniEngine):
                         )
 
             # gather log_prob if sp > 1
-            # if self.use_ulysses_sp:
-            #     pad_size = output_args["pad_size"]
+            if self.use_ulysses_sp:
+                pad_size = output_args["pad_size"]
 
-            #     # gather and unpad for the ulysses sp
-            #     log_probs = gather_outputs_and_unpad(
-            #         log_probs,
-            #         gather_dim=0,
-            #         unpad_dim=0,
-            #         padding_size=pad_size,
-            #     )
-            #     if calculate_entropy:
-            #         entropy_rmpad = gather_outputs_and_unpad(
-            #             entropy_rmpad,
-            #             gather_dim=0,
-            #             unpad_dim=0,
-            #             padding_size=pad_size,
-            #         )
+                # gather and unpad for the ulysses sp
+                log_probs = gather_outputs_and_unpad(
+                    log_probs,
+                    gather_dim=0,
+                    unpad_dim=0,
+                    padding_size=pad_size,
+                )
+                if calculate_entropy:
+                    entropy_rmpad = gather_outputs_and_unpad(
+                        entropy_rmpad,
+                        gather_dim=0,
+                        unpad_dim=0,
+                        padding_size=pad_size,
+                    )
 
             if pad_mode == DatasetPadMode.NO_PADDING:
                 cu_seqlens = input_ids.offsets()
