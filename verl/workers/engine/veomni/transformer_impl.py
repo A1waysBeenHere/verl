@@ -49,7 +49,6 @@ from ..utils import postprocess_batch_func, prepare_micro_batches
 logger = logging.getLogger(__file__)
 
 
-@EngineRegistry.register(model_type="language_model", backend=["veomni"], device=["cuda", "npu"])
 class VeomniEngine(BaseEngine):
     def __init__(
         self,
@@ -278,7 +277,87 @@ class VeomniEngine(BaseEngine):
         lr = self.lr_scheduler.get_last_lr()[0]  # only return the first group
         return lr
 
-    # Need Fix
+    def forward_backward_batch(self, data: TensorDict, loss_function: Callable, forward_only=False) -> Any:
+        """
+        Perform a forward pass and optionally a backward pass on a batch of data.
+
+        Args:
+            data: The input data for the forward pass, typically containing tensors and metadata.
+            loss_function: The loss function to optimize. See `verl.workers.roles.utils.losses` for examples.
+            forward_only: If True, perform only the forward pass. If False, perform forward and backward pass.
+
+        Returns:
+            Any: The output of the forward pass, which can be used for loss computation or other purposes.
+        """
+        tu.assign_non_tensor(data, sp_size=parallel_state._PARALLEL_STATE.ulysses_size)
+
+        micro_batches, indices = prepare_micro_batches(
+            data=data, dp_group=self.get_data_parallel_group(), same_micro_num_in_dp=True
+        )
+
+        output_lst = []
+
+        for micro_batch in micro_batches:
+            with self.model_fwd_context:
+                loss, meta_info = self.forward_step(
+                    micro_batch, loss_function=loss_function, forward_only=forward_only, mbs_len=len(micro_batches)
+                )
+            if not forward_only:
+                global_bsz = data["global_batch_size"]
+                local_micro_bsz = micro_batch.batch_size[0]
+                # metrics contain the output, loss is dummy
+                loss_scale_factor = local_micro_bsz / (global_bsz / self.get_data_parallel_size())
+                # scale loss
+                loss = loss * loss_scale_factor
+                with self.model_bwd_context:
+                    loss.backward()
+
+            output_lst.append(meta_info)
+
+        return postprocess_batch_func(output_lst=output_lst, indices=indices, data=data)
+
+    def get_per_tensor_param(self):
+        raise NotImplementedError
+
+    def get_data_parallel_rank(self):
+        if parallel_state._PARALLEL_STATE.ulysses_size > 1:
+            return parallel_state._PARALLEL_STATE.device_mesh["dp"].get_local_rank()
+        else:
+            return torch.distributed.get_rank()
+
+    def get_data_parallel_size(self):
+        return torch.distributed.get_world_size() // parallel_state._PARALLEL_STATE.ulysses_size
+
+    def get_data_parallel_group(self):
+        if parallel_state._PARALLEL_STATE.ulysses_size > 1:
+            return parallel_state._PARALLEL_STATE.device_mesh["dp"]
+        else:
+            return torch.distributed.group.WORLD
+
+    def to(self, device: str, model: bool = True, optimizer: bool = True):
+        """
+        Move model parameters, optimizer states, or both to the specified device.
+
+        Args:
+            device: Target device identifier.
+            model: If True, move the model.
+            optimizer: If True, move the optimizer states.
+        """
+        raise NotImplementedError
+
+    def is_mp_src_rank_with_outputs(self):
+        """
+        Whether the current rank is the first rank in model parallel group that contains model outputs
+        """
+        if parallel_state._PARALLEL_STATE.ulysses_size > 1:
+            is_collect = parallel_state._PARALLEL_STATE.device_mesh["ulysses"].get_local_rank() == 0
+        else:
+            is_collect = True
+        return is_collect
+
+
+@EngineRegistry.register(model_type="language_model", backend=["veomni"], device=["cuda", "npu"])
+class VeOmniEngineWithLMHead(VeomniEngine):
     def prepare_model_inputs(self, micro_batch: TensorDict):
         use_remove_padding = tu.get_non_tensor_data(data=micro_batch, key="use_remove_padding", default=True)
         pad_mode = tu.get_non_tensor_data(data=micro_batch, key="pad_mode", default=DatasetPadMode.NO_PADDING)
@@ -534,84 +613,6 @@ class VeomniEngine(BaseEngine):
             }
 
             return loss, output
-
-    def forward_backward_batch(self, data: TensorDict, loss_function: Callable, forward_only=False) -> Any:
-        """
-        Perform a forward pass and optionally a backward pass on a batch of data.
-
-        Args:
-            data: The input data for the forward pass, typically containing tensors and metadata.
-            loss_function: The loss function to optimize. See `verl.workers.roles.utils.losses` for examples.
-            forward_only: If True, perform only the forward pass. If False, perform forward and backward pass.
-
-        Returns:
-            Any: The output of the forward pass, which can be used for loss computation or other purposes.
-        """
-        tu.assign_non_tensor(data, sp_size=parallel_state._PARALLEL_STATE.ulysses_size)
-
-        micro_batches, indices = prepare_micro_batches(
-            data=data, dp_group=self.get_data_parallel_group(), same_micro_num_in_dp=True
-        )
-
-        output_lst = []
-
-        for micro_batch in micro_batches:
-            with self.model_fwd_context:
-                loss, meta_info = self.forward_step(
-                    micro_batch, loss_function=loss_function, forward_only=forward_only, mbs_len=len(micro_batches)
-                )
-            if not forward_only:
-                global_bsz = data["global_batch_size"]
-                local_micro_bsz = micro_batch.batch_size[0]
-                # metrics contain the output, loss is dummy
-                loss_scale_factor = local_micro_bsz / (global_bsz / self.get_data_parallel_size())
-                # scale loss
-                loss = loss * loss_scale_factor
-                with self.model_bwd_context:
-                    loss.backward()
-
-            output_lst.append(meta_info)
-
-        return postprocess_batch_func(output_lst=output_lst, indices=indices, data=data)
-
-    def get_per_tensor_param(self):
-        raise NotImplementedError
-
-    def get_data_parallel_rank(self):
-        if parallel_state._PARALLEL_STATE.ulysses_size > 1:
-            return parallel_state._PARALLEL_STATE.device_mesh["dp"].get_local_rank()
-        else:
-            return torch.distributed.get_rank()
-
-    def get_data_parallel_size(self):
-        return torch.distributed.get_world_size() // parallel_state._PARALLEL_STATE.ulysses_size
-
-    def get_data_parallel_group(self):
-        if parallel_state._PARALLEL_STATE.ulysses_size > 1:
-            return parallel_state._PARALLEL_STATE.device_mesh["dp"]
-        else:
-            return torch.distributed.group.WORLD
-
-    def to(self, device: str, model: bool = True, optimizer: bool = True):
-        """
-        Move model parameters, optimizer states, or both to the specified device.
-
-        Args:
-            device: Target device identifier.
-            model: If True, move the model.
-            optimizer: If True, move the optimizer states.
-        """
-        raise NotImplementedError
-
-    def is_mp_src_rank_with_outputs(self):
-        """
-        Whether the current rank is the first rank in model parallel group that contains model outputs
-        """
-        if parallel_state._PARALLEL_STATE.ulysses_size > 1:
-            is_collect = parallel_state._PARALLEL_STATE.device_mesh["ulysses"].get_local_rank() == 0
-        else:
-            is_collect = True
-        return is_collect
 
 
 class EngineTrainModeCtx:
