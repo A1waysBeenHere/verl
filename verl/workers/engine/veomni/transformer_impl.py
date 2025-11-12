@@ -34,15 +34,18 @@ from verl.utils.dataset.dataset_utils import DatasetPadMode
 from verl.utils.device import (
     get_device_id,
     get_device_name,
+    get_torch_device,
 )
 from verl.utils.fsdp_utils import (
     load_fsdp_model_to_gpu,
+    load_fsdp_optimizer,
     offload_fsdp_model_to_cpu,
     offload_fsdp_optimizer,
 )
 from verl.utils.torch_functional import logprobs_from_logits
 from verl.utils.ulysses import gather_outputs_and_unpad, ulysses_pad, ulysses_pad_and_slice_inputs
 from verl.workers.config import HFModelConfig, VeomniEngineConfig, VeomniOptimizerConfig
+from verl.workers.sharding_manager.fsdp_ulysses import FSDPUlyssesShardingManager
 
 from ..base import BaseEngine, EngineRegistry
 from ..utils import postprocess_batch_func, prepare_micro_batches
@@ -100,7 +103,8 @@ class VeomniEngine(BaseEngine):
         self._is_offload_optimizer = self.engine_config.optimizer_offload
         self._is_lora = self.model_config.lora_rank > 0
 
-        self.use_ulysses_sp = parallel_state._PARALLEL_STATE.sp_enabled
+        self.ulysses_sharding_manager = FSDPUlyssesShardingManager(parallel_state.get_parallel_state().sp_group)
+        self.use_ulysses_sp = parallel_state.get_parallel_state().sp_enabled
 
         if self.engine_config.entropy_from_logits_with_chunking:
             entropy_from_logits = verl_F.entropy_from_logits_with_chunking
@@ -292,7 +296,7 @@ class VeomniEngine(BaseEngine):
         Returns:
             Any: The output of the forward pass, which can be used for loss computation or other purposes.
         """
-        tu.assign_non_tensor(data, sp_size=parallel_state._PARALLEL_STATE.ulysses_size)
+        tu.assign_non_tensor(data, sp_size=parallel_state.get_parallel_state().ulysses_size)
 
         micro_batches, indices = prepare_micro_batches(
             data=data, dp_group=self.get_data_parallel_group(), same_micro_num_in_dp=True
@@ -323,17 +327,17 @@ class VeomniEngine(BaseEngine):
         raise NotImplementedError
 
     def get_data_parallel_rank(self):
-        if parallel_state._PARALLEL_STATE.ulysses_size > 1:
-            return parallel_state._PARALLEL_STATE.device_mesh["dp"].get_local_rank()
+        if parallel_state.get_parallel_state().ulysses_size > 1:
+            return parallel_state.get_parallel_state().device_mesh["dp"].get_local_rank()
         else:
             return torch.distributed.get_rank()
 
     def get_data_parallel_size(self):
-        return torch.distributed.get_world_size() // parallel_state._PARALLEL_STATE.ulysses_size
+        return torch.distributed.get_world_size() // parallel_state.get_parallel_state().ulysses_size
 
     def get_data_parallel_group(self):
-        if parallel_state._PARALLEL_STATE.ulysses_size > 1:
-            return parallel_state._PARALLEL_STATE.device_mesh.get_group(mesh_dim="dp")
+        if parallel_state.get_parallel_state().ulysses_size > 1:
+            return parallel_state.get_parallel_state().device_mesh.get_group(mesh_dim="dp")
         else:
             return torch.distributed.group.WORLD
 
@@ -352,8 +356,8 @@ class VeomniEngine(BaseEngine):
         """
         Whether the current rank is the first rank in model parallel group that contains model outputs
         """
-        if parallel_state._PARALLEL_STATE.ulysses_size > 1:
-            is_collect = parallel_state._PARALLEL_STATE.device_mesh["ulysses"].get_local_rank() == 0
+        if parallel_state.get_parallel_state().ulysses_size > 1:
+            is_collect = parallel_state.get_parallel_state().device_mesh["ulysses"].get_local_rank() == 0
         else:
             is_collect = True
         return is_collect
@@ -623,13 +627,22 @@ class EngineTrainModeCtx:
         self.engine = engine
 
     def __enter__(self):
-        assert isinstance(self.engine, VeomniEngine)
         self.engine.mode = "train"
-        self.engine.model.train()
+        if self.engine._is_offload_param:
+            load_fsdp_model_to_gpu(self.engine.module)
+        if self.engine._is_offload_optimizer:
+            load_fsdp_optimizer(optimizer=self.engine.optimizer, device_id=get_torch_device().current_device())
+        self.engine.ulysses_sharding_manager.__enter__()
+        self.engine.module.train()
 
     def __exit__(self, exc_type, exc_value, traceback):
-        assert isinstance(self.engine, VeomniEngine)
+        self.engine.ulysses_sharding_manager.__exit__(exc_type, exc_value, traceback)
         self.engine.optimizer_zero_grad()
+
+        if self.engine._is_offload_param:
+            offload_fsdp_model_to_cpu(self.engine.module)
+        if self.engine._is_offload_optimizer:
+            offload_fsdp_optimizer(optimizer=self.engine.optimizer)
         self.engine.mode = None
 
 
